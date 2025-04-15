@@ -2,7 +2,7 @@ import { insightResponseSchema } from "../schemas"
 import { supabase } from "./supabase"
 
 export const fetchInsights = async (question: string, clientId: string) => {
-	const { data, error } = await supabase.functions.invoke("generate-insights", {
+	const { data, error } = await supabase.invoke("generate-insights", {
 		body: { question, client_id: clientId },
 	})
 
