@@ -1,0 +1,10 @@
+fastapi 
+uvicorn 
+pydantic-ai[logfire]
+google-cloud-bigquery 
+supabase 
+openai
+python-jose[cryptography]  # Auth
+pydantic-settings  # Config
+asyncpg
+logfire[asyncpg]
