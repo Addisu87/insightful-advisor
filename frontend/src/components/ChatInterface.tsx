@@ -1,13 +1,9 @@
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { messageSchema, InsightResponse } from "../schemas"
+import { messageSchema, insightResponseSchema, MessageFormData } from "../schemas"
 import { supabase } from "../lib/supabase"
-import ReactMarkdown from "react-markdown"
-import { Bar } from "react-chartjs-2"
 import { useEffect, useRef, useState } from "react"
 import { Message } from "../types"
-import { MessageFormData } from "../schemas"
-import { insightResponseSchema } from "../schemas"
 
 export default function ChatInterface({ clientId }: { clientId: string }) {
 	const {
@@ -27,9 +23,46 @@ export default function ChatInterface({ clientId }: { clientId: string }) {
 	const messagesEndRef = useRef<HTMLDivElement>(null)
 
 	// Fetch messages and set up realtime (same as before)
+	// Fetch chat history
 	useEffect(() => {
-		/* ... */
+		const fetchMessages = async () => {
+			const { data } = await supabase
+				.from("messages")
+				.select("*")
+				.eq("client_id", clientId)
+				.order("created_at", { ascending: true })
+
+			if (data) setMessages(data)
+		}
+
+		fetchMessages()
+
+		// Real-time subscriptions
+		const channel = supabase
+			.channel("messages")
+			.on(
+				"postgres_changes",
+				{
+					event: "INSERT",
+					schema: "public",
+					table: "messages",
+					filter: `client_id=eq.${clientId}`,
+				},
+				(payload) => {
+					setMessages((prev) => [...prev, payload.new as Message])
+				},
+			)
+			.subscribe()
+
+		return () => {
+			supabase.removeChannel(channel)
+		}
 	}, [clientId])
+
+	// Auto-scroll to bottom
+	useEffect(() => {
+		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+	}, [messages])
 
 	const onSubmit = async (formData: MessageFormData) => {
 		try {
@@ -41,6 +74,7 @@ export default function ChatInterface({ clientId }: { clientId: string }) {
 				client_id: clientId,
 				created_at: new Date().toISOString(),
 			}
+			// Optimistic update
 			setMessages((prev) => [...prev, userMessage])
 
 			// Save to Supabase
