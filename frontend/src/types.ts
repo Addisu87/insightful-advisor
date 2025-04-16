@@ -2,18 +2,21 @@ export type Message = {
 	id: string
 	content: string
 	role: "user" | "assistant" | "system"
+	client_id: string
 	created_at: string
 	metadata?: {
-		sql_query?: string
-		data?: BigQueryResult[]
+		summary: string
+		sql_query: string
+		data: Record<string, any>
+		visualizations: Visualization[]
 	}
 }
 
-export type Chat = {
-	id: string
-	client_id: string
-	title: string
-	created_at: string
+export type Visualization = {
+	// Add specific visualization fields based on your backend model
+	type: string
+	data: Record<string, any>
+	config: Record<string, any>
 }
 
 export interface RequestBody {
@@ -24,12 +27,6 @@ export interface RequestBody {
 export interface ResponseBody {
 	summary: string
 	sql_query: string
-	results: BigQueryResult[]
-}
-
-export interface BigQueryResult {
-	// Add specific fields based on your data structure
-	id: string
-	timestamp: string
-	value: number
+	data: Record<string, any>
+	visualizations: Visualization[]
 }

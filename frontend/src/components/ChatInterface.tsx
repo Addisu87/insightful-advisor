@@ -120,20 +120,22 @@ export default function ChatInterface({ clientId }: ChatInterfaceProps) {
 			if (userMessageError) throw userMessageError
 
 			// Generate AI response
-			const { insights, query, queryResult } = await generateInsightFromQuery({
+			const { summary, sql_query, data, visualizations } = await generateInsightFromQuery({
 				question: formData.content,
-				clientName: clientId,
+				clientId,
 			})
 
 			const aiMessage: ChatMessage = {
 				id: Date.now().toString(),
-				content: insights,
+				content: summary,
 				role: "assistant",
 				client_id: clientId,
 				created_at: new Date().toISOString(),
 				metadata: {
-					sql_query: query,
-					data: JSON.parse(queryResult),
+					summary,
+					sql_query,
+					data,
+					visualizations
 				},
 			}
 
@@ -189,6 +191,11 @@ export default function ChatInterface({ clientId }: ChatInterfaceProps) {
 									<pre className="mt-2 text-sm bg-muted-foreground/20 p-2 rounded overflow-x-auto">
 										{message.metadata.sql_query}
 									</pre>
+								)}
+								{message.metadata?.visualizations && (
+									<div className="mt-4">
+										{/* Add visualization rendering here */}
+									</div>
 								)}
 							</div>
 						</div>
