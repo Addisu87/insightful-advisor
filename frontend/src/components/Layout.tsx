@@ -1,4 +1,3 @@
-import { cn } from "@/lib/utils"
 import {
 	SidebarProvider,
 	SidebarInset,
@@ -13,18 +12,19 @@ interface LayoutProps {
 	className?: string
 }
 
-export default function Layout({ children, className }: LayoutProps) {
+export default function Layout({ children }: LayoutProps) {
 	return (
 		<SidebarProvider defaultOpen>
-			<div className={cn("flex min-h-screen bg-background", className)}>
-				<AppSidebar />
-				<div className="flex w-full flex-col">
+			<AppSidebar />
+			{/* Add SidebarInset to handle the content area properly */}
+			<SidebarInset>
+				<div className="flex h-full w-full flex-col">
 					<Header />
 					<main className="flex-1">
 						<div className="h-full p-4 lg:p-6 flex flex-col gap-4">{children}</div>
 					</main>
 				</div>
-			</div>
+			</SidebarInset>
 		</SidebarProvider>
 	)
 }
