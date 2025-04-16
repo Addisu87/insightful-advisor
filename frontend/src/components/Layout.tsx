@@ -1,4 +1,12 @@
 import { cn } from "@/lib/utils"
+import {
+	SidebarProvider,
+	SidebarInset,
+	Sidebar,
+	SidebarContent,
+} from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/app-sidebar"
+import { Header } from "@/components/Header"
 
 interface LayoutProps {
 	children: React.ReactNode
@@ -7,8 +15,16 @@ interface LayoutProps {
 
 export default function Layout({ children, className }: LayoutProps) {
 	return (
-		<div className={cn("container mx-auto p-4 flex flex-col gap-4", className)}>
-			{children}
-		</div>
+		<SidebarProvider defaultOpen>
+			<div className={cn("flex min-h-screen bg-background", className)}>
+				<AppSidebar />
+				<div className="flex w-full flex-col">
+					<Header />
+					<main className="flex-1">
+						<div className="h-full p-4 lg:p-6 flex flex-col gap-4">{children}</div>
+					</main>
+				</div>
+			</div>
+		</SidebarProvider>
 	)
 }
