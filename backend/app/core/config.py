@@ -15,6 +15,9 @@ class Settings(BaseConfig):
     DATABASE_URL: str | None = None
     BASE_URL: str | None = None
     OPENAI_API_KEY: str | None = None
+    DB_FORCE_ROLL_BACK: bool = False
+    VITE_SUPABASE_URL: str | None = None
+    VITE_SUPABASE_ANON_KEY: str | None = None
 
 
 class DevConfig(Settings):
@@ -28,6 +31,7 @@ class ProdConfig(Settings):
 class TestConfig(Settings):
     model_config = SettingsConfigDict(env_prefix="TEST_", extra="ignore")
     DATABASE_URL: str = "postgresql://paydanticai:paydanticai@localhost/testdb"
+    DB_FORCE_ROLL_BACK: bool = True
 
 
 # Avoid reloading environment variables multiple times

@@ -1,10 +1,13 @@
 fastapi 
 uvicorn 
 pydantic-ai[logfire]
+logfire[asyncpg]
 google-cloud-bigquery 
 supabase 
 openai
-python-jose[cryptography]  # Auth
 pydantic-settings  # Config
-asyncpg
-logfire[asyncpg]
+SQLAlchemy
+databases[asyncpg]
+python-jose # JWT
+passlib
+bcrypt
