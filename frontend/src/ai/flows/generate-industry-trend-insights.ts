@@ -13,6 +13,6 @@ export async function generateIndustryTrendInsights({
 }: TrendParams): Promise<TrendResponse> {
 	// Placeholder - implement industry trend analysis later
 	return {
-		insights: `Industry trends related to: ${query}\n\nThis is a placeholder for industry trend analysis.`,
+		insights: `Industry trends related to: ${query}\n\nBased on ${clientDataDescription}:\nThis is a placeholder for industry trend analysis.`,
 	}
 }
