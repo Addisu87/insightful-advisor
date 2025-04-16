@@ -1,11 +1,24 @@
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { messageSchema, insightResponseSchema, MessageFormData } from "../schemas"
-import { supabase } from "../lib/supabase"
+import { messageSchema, type MessageFormData } from "@/schemas"
+import { supabase } from "@/lib/supabase"
 import { useEffect, useRef, useState } from "react"
-import { Message } from "../types"
+import type { Message } from "@/types"
+import { toast } from "sonner"
+import { Card, CardContent } from "@/components/ui/card"
+import { generateInsightFromQuery } from "@/ai/flows/generate-insight-from-query"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
-export default function ChatInterface({ clientId }: { clientId: string }) {
+interface ChatMessage extends Message {
+	isLoading?: boolean
+}
+
+interface ChatInterfaceProps {
+	clientId: string
+}
+
+export default function ChatInterface({ clientId }: ChatInterfaceProps) {
 	const {
 		register,
 		handleSubmit,
@@ -19,20 +32,33 @@ export default function ChatInterface({ clientId }: { clientId: string }) {
 		},
 	})
 
-	const [messages, setMessages] = useState<Message[]>([])
+	const [messages, setMessages] = useState<ChatMessage[]>([])
 	const messagesEndRef = useRef<HTMLDivElement>(null)
 
-	// Fetch messages and set up realtime (same as before)
-	// Fetch chat history
 	useEffect(() => {
 		const fetchMessages = async () => {
-			const { data } = await supabase
-				.from("messages")
-				.select("*")
-				.eq("client_id", clientId)
-				.order("created_at", { ascending: true })
+			try {
+				const { data, error } = await supabase
+					.from("messages")
+					.select("*")
+					.eq("client_id", clientId)
+					.order("created_at", { ascending: true })
 
-			if (data) setMessages(data)
+				if (error) {
+					console.error("Supabase error:", error)
+					toast.error("Error fetching messages", {
+						description: error.message || "Please check your connection and try again",
+					})
+					return
+				}
+
+				setMessages(data || [])
+			} catch (err) {
+				console.error("Fetch error:", err)
+				toast.error("Failed to fetch messages", {
+					description: "Please check your connection and try again",
+				})
+			}
 		}
 
 		fetchMessages()
@@ -52,66 +78,86 @@ export default function ChatInterface({ clientId }: { clientId: string }) {
 					setMessages((prev) => [...prev, payload.new as Message])
 				},
 			)
-			.subscribe()
+			.subscribe((status) => {
+				if (status === "SUBSCRIBED") {
+					console.log("Subscribed to messages channel")
+				}
+				if (status === "CHANNEL_ERROR") {
+					console.error("Failed to subscribe to messages channel")
+					toast.error("Real-time updates unavailable", {
+						description: "Messages may not update automatically",
+					})
+				}
+			})
 
 		return () => {
 			supabase.removeChannel(channel)
 		}
 	}, [clientId])
 
-	// Auto-scroll to bottom
 	useEffect(() => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
 	}, [messages])
 
 	const onSubmit = async (formData: MessageFormData) => {
 		try {
-			// Optimistic update
-			const userMessage = {
+			// Add user message with loading state
+			const userMessage: ChatMessage = {
 				id: Date.now().toString(),
 				content: formData.content,
-				role: "user" as const,
+				role: "user",
 				client_id: clientId,
 				created_at: new Date().toISOString(),
 			}
-			// Optimistic update
+
 			setMessages((prev) => [...prev, userMessage])
 
-			// Save to Supabase
-			await supabase.from("messages").insert([userMessage])
+			// Save user message to Supabase
+			const { error: userMessageError } = await supabase
+				.from("messages")
+				.insert([userMessage])
 
-			// Get AI response
-			const { data, error } = await supabase.functions.invoke("generate-insights", {
-				body: { question: formData.content, client_id: clientId },
+			if (userMessageError) throw userMessageError
+
+			// Generate AI response
+			const { insights, query, queryResult } = await generateInsightFromQuery({
+				question: formData.content,
+				clientName: clientId,
 			})
 
-			if (error) throw error
-
-			// Validate API response
-			const parsedResponse = insightResponseSchema.parse(data)
-
-			const aiMessage = {
+			const aiMessage: ChatMessage = {
 				id: Date.now().toString(),
-				content: parsedResponse.summary,
-				role: "assistant" as const,
+				content: insights,
+				role: "assistant",
 				client_id: clientId,
 				created_at: new Date().toISOString(),
 				metadata: {
-					sql_query: parsedResponse.sql_query,
-					data: parsedResponse.data,
+					sql_query: query,
+					data: JSON.parse(queryResult),
 				},
 			}
 
-			await supabase.from("messages").insert([aiMessage])
+			// Save AI message to Supabase
+			const { error: aiMessageError } = await supabase
+				.from("messages")
+				.insert([aiMessage])
+
+			if (aiMessageError) throw aiMessageError
+
 			reset()
 		} catch (error) {
 			console.error("Submission error:", error)
+			toast.error("Failed to get response", {
+				description: "Please try again.",
+			})
+
 			setMessages((prev) => [
 				...prev,
 				{
 					id: `error-${Date.now()}`,
 					content: "Failed to get response. Please try again.",
 					role: "system",
+					client_id: clientId,
 					created_at: new Date().toISOString(),
 				},
 			])
@@ -119,34 +165,56 @@ export default function ChatInterface({ clientId }: { clientId: string }) {
 	}
 
 	return (
-		<div className="flex flex-col h-full max-w-4xl mx-auto">
-			{/* Message History (same as before) */}
-
-			{/* Enhanced Form with Validation */}
-			<form onSubmit={handleSubmit(onSubmit)} className="p-4 border-t" noValidate>
-				<div className="flex flex-col space-y-2">
-					<div className="flex space-x-2">
-						<input
-							{...register("content")}
-							disabled={isSubmitting}
-							className={`flex-1 border rounded-lg px-4 py-2 focus:outline-none ${
-								errors.content ? "border-red-500" : "focus:ring-2 focus:ring-blue-500"
+		<Card className="flex flex-col h-[600px]">
+			<CardContent className="flex flex-col h-full p-4">
+				<div className="flex-1 overflow-y-auto space-y-4 mb-4">
+					{messages.map((message) => (
+						<div
+							key={message.id}
+							className={`flex ${
+								message.role === "user" ? "justify-end" : "justify-start"
 							}`}
-							placeholder="Ask about client data..."
-						/>
-						<button
-							type="submit"
-							disabled={isSubmitting}
-							className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-blue-400"
 						>
-							{isSubmitting ? "Sending..." : "Send"}
-						</button>
-					</div>
-					{errors.content && (
-						<p className="text-red-500 text-sm">{errors.content.message}</p>
-					)}
+							<div
+								className={`max-w-[80%] rounded-lg p-3 ${
+									message.role === "user"
+										? "bg-primary text-primary-foreground"
+										: message.role === "system"
+										? "bg-destructive/10 text-destructive"
+										: "bg-muted"
+								}`}
+							>
+								<p>{message.content}</p>
+								{message.metadata?.sql_query && (
+									<pre className="mt-2 text-sm bg-muted-foreground/20 p-2 rounded overflow-x-auto">
+										{message.metadata.sql_query}
+									</pre>
+								)}
+							</div>
+						</div>
+					))}
+					<div ref={messagesEndRef} />
 				</div>
-			</form>
-		</div>
+
+				<form onSubmit={handleSubmit(onSubmit)} className="mt-auto">
+					<div className="flex flex-col space-y-2">
+						<div className="flex space-x-2">
+							<Input
+								{...register("content")}
+								disabled={isSubmitting}
+								className={errors.content ? "border-destructive" : ""}
+								placeholder="Ask about client data..."
+							/>
+							<Button type="submit" disabled={isSubmitting}>
+								{isSubmitting ? "Sending..." : "Send"}
+							</Button>
+						</div>
+						{errors.content && (
+							<p className="text-destructive text-sm">{errors.content.message}</p>
+						)}
+					</div>
+				</form>
+			</CardContent>
+		</Card>
 	)
 }
