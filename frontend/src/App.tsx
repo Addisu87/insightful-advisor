@@ -1,10 +1,22 @@
-import { Button } from "./components/ui/button"
+import { useState } from "react"
+import { Toaster } from "./components/ui/sonner"
+import ChatInterface from "./components/ChatInterface"
+import ClientSelector from "./components/ClientSelector"
+import Layout from "./components/Layout"
+import { MOCK_CLIENTS } from "./constants/clients"
 
 export default function App() {
+	const [clientName, setClientName] = useState(MOCK_CLIENTS[0].value)
+
 	return (
-		<div className="flex flex-col items-center justify-center min-h-svh">
-			<Button>Click me</Button>
-			<h1 className="text-3xl font-bold text-blue-500">Hello there!</h1>
-		</div>
+		<Layout>
+			<Toaster />
+			<ClientSelector
+				clients={MOCK_CLIENTS}
+				selectedClient={clientName}
+				onClientChange={setClientName}
+			/>
+			{clientName && <ChatInterface clientId={clientName} />}
+		</Layout>
 	)
 }

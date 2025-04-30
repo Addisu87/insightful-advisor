@@ -13,12 +13,11 @@ class BaseConfig(BaseSettings):
 
 class Settings(BaseConfig):
     DATABASE_URL: str | None = None
-    DEEPSEEK_API_KEY: str | None = None
     BASE_URL: str | None = None
-    DB_FORCE_ROLL_BACK: bool = False
     OPENAI_API_KEY: str | None = None
-    WEATHER_API_KEY: str | None = None
-    GEO_API_KEY: str | None = None
+    DB_FORCE_ROLL_BACK: bool = False
+    VITE_SUPABASE_URL: str | None = None
+    VITE_SUPABASE_ANON_KEY: str | None = None
 
 
 class DevConfig(Settings):
